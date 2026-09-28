@@ -68,8 +68,11 @@
         <h1>🚨 SOC Alert Dashboard</h1>
         
         <div class="alert-count">
-            <strong>Total Alerts:</strong> {{ total_alerts }}
-        </div>
+    <strong>Total Alerts:</strong> {{ total_alerts }}
+    <a href="{% url 'create_alert' %}" style="float: right; color: #d9534f; text-decoration: none; font-weight: bold;">
+        + Create Alert
+    </a>
+</div>
 
         <ul class="alert-list">
             {% for alert in alerts %}
