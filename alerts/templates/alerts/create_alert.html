@@ -1,118 +1,285 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Create Security Alert</title>
+    <title>Create Alert</title>
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            background: #f5f5f5; 
+        * {
             margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             padding: 20px;
         }
+        
         .container {
+            background: #1a1a2e;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            width: 100%;
             max-width: 600px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            color: #e0e0e0;
         }
+        
         h1 {
-            color: #333;
-            border-bottom: 2px solid #d9534f;
-            padding-bottom: 10px;
+            color: #667eea;
+            margin-bottom: 30px;
+            font-size: 24px;
         }
+        
         .form-group {
             margin-bottom: 20px;
         }
+        
         label {
             display: block;
+            margin-bottom: 8px;
+            color: #667eea;
             font-weight: bold;
-            margin-bottom: 5px;
-            color: #333;
         }
-        input, select {
+        
+        input, select, textarea {
             width: 100%;
             padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 3px;
-            font-size: 1em;
-            box-sizing: border-box;
+            background: #16213e;
+            color: #e0e0e0;
+            border: 1px solid #667eea;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: inherit;
         }
-        input:focus, select:focus {
-            border-color: #d9534f;
+        
+        input:focus, select:focus, textarea:focus {
             outline: none;
+            border-color: #764ba2;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
         }
-        .error {
-            color: #d9534f;
-            font-size: 0.9em;
+        
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .errors {
+            list-style: none;
             margin-top: 5px;
         }
-        button {
-            background: #d9534f;
-            color: white;
-            padding: 12px 30px;
+        
+        .errors li {
+            color: #e74c3c;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        .form-group.error input,
+        .form-group.error select,
+        .form-group.error textarea {
+            border-color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        
+        button, .btn-cancel {
+            flex: 1;
+            padding: 12px;
             border: none;
-            border-radius: 3px;
-            font-size: 1em;
+            border-radius: 5px;
+            font-size: 16px;
             cursor: pointer;
-        }
-        button:hover {
-            background: #c0392b;
-        }
-        .success {
-            background: #d4edda;
-            color: #155724;
-            padding: 15px;
-            border-radius: 3px;
-            margin-bottom: 20px;
-        }
-        .nav {
-            margin-top: 20px;
-        }
-        .nav a {
-            color: #d9534f;
+            font-weight: bold;
+            transition: 0.3s;
             text-decoration: none;
+            text-align: center;
+            display: block;
         }
-        .nav a:hover {
-            text-decoration: underline;
+        
+        button {
+            background: #667eea;
+            color: white;
+        }
+        
+        button:hover {
+            background: #764ba2;
+        }
+        
+        .btn-cancel {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .btn-cancel:hover {
+            background: #7f8c8d;
+        }
+        
+        .help-text {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🚨 Create Security Alert</h1>
-
-        {% if success %}
-            <div class="success">
-                ✅ {{ message }}
-            </div>
-        {% endif %}
-
+        <h1>🚨 Create New Alert</h1>
+        
         <form method="POST">
-            {% csrf_token %}  <!-- IMPORTANT: Prevents CSRF attacks -->
-
-            {% for field in form %}
-                <div class="form-group">
-                    {{ field.label_tag }}
-                    {{ field }}
-                    
-                    {% if field.errors %}
-                        <div class="error">
-                            {% for error in field.errors %}
-                                {{ error }}
+            {% csrf_token %}
+            
+            <div class="form-row">
+                <div class="form-group {% if form.event.errors %}error{% endif %}">
+                    <label for="{{ form.event.id_for_label }}">Event Type *</label>
+                    {{ form.event }}
+                    {% if form.event.errors %}
+                        <ul class="errors">
+                            {% for error in form.event.errors %}
+                                <li>{{ error }}</li>
                             {% endfor %}
-                        </div>
+                        </ul>
+                    {% endif %}
+                    <div class="help-text">What happened? (e.g., "Brute force SSH attempt")</div>
+                </div>
+                
+                <div class="form-group {% if form.protocol.errors %}error{% endif %}">
+                    <label for="{{ form.protocol.id_for_label }}">Protocol</label>
+                    {{ form.protocol }}
+                    {% if form.protocol.errors %}
+                        <ul class="errors">
+                            {% for error in form.protocol.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
                     {% endif %}
                 </div>
-            {% endfor %}
-
-            <button type="submit">Create Alert</button>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group {% if form.source_ip.errors %}error{% endif %}">
+                    <label for="{{ form.source_ip.id_for_label }}">Source IP *</label>
+                    {{ form.source_ip }}
+                    {% if form.source_ip.errors %}
+                        <ul class="errors">
+                            {% for error in form.source_ip.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group {% if form.source_port.errors %}error{% endif %}">
+                    <label for="{{ form.source_port.id_for_label }}">Source Port</label>
+                    {{ form.source_port }}
+                    {% if form.source_port.errors %}
+                        <ul class="errors">
+                            {% for error in form.source_port.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group {% if form.destination_ip.errors %}error{% endif %}">
+                    <label for="{{ form.destination_ip.id_for_label }}">Destination IP *</label>
+                    {{ form.destination_ip }}
+                    {% if form.destination_ip.errors %}
+                        <ul class="errors">
+                            {% for error in form.destination_ip.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group {% if form.destination_port.errors %}error{% endif %}">
+                    <label for="{{ form.destination_port.id_for_label }}">Destination Port</label>
+                    {{ form.destination_port }}
+                    {% if form.destination_port.errors %}
+                        <ul class="errors">
+                            {% for error in form.destination_port.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group {% if form.severity.errors %}error{% endif %}">
+                    <label for="{{ form.severity.id_for_label }}">Severity *</label>
+                    {{ form.severity }}
+                    {% if form.severity.errors %}
+                        <ul class="errors">
+                            {% for error in form.severity.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group {% if form.status.errors %}error{% endif %}">
+                    <label for="{{ form.status.id_for_label }}">Status</label>
+                    {{ form.status }}
+                    {% if form.status.errors %}
+                        <ul class="errors">
+                            {% for error in form.status.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="form-group {% if form.event_time.errors %}error{% endif %}">
+                <label for="{{ form.event_time.id_for_label }}">Event Time</label>
+                {{ form.event_time }}
+                {% if form.event_time.errors %}
+                    <ul class="errors">
+                        {% for error in form.event_time.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+                <div class="help-text">When did the event actually occur? (optional)</div>
+            </div>
+            
+            <div class="form-group {% if form.notes.errors %}error{% endif %}">
+                <label for="{{ form.notes.id_for_label }}">Notes</label>
+                {{ form.notes }}
+                {% if form.notes.errors %}
+                    <ul class="errors">
+                        {% for error in form.notes.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+                <div class="help-text">Analyst observations (optional)</div>
+            </div>
+            
+            <div class="button-group">
+                <button type="submit">✅ Create Alert</button>
+                <a href="{% url 'alert_list' %}" class="btn-cancel">Cancel</a>
+            </div>
         </form>
-
-        <div class="nav">
-            <a href="{% url 'alert_list' %}">← Back to Alerts</a>
-        </div>
     </div>
 </body>
 </html>

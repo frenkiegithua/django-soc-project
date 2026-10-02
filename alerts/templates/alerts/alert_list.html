@@ -3,90 +3,308 @@
 <head>
     <title>SOC Alert Dashboard</title>
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            background: #f5f5f5; 
+        * {
             margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #333;
-            border-bottom: 2px solid #d9534f;
-            padding-bottom: 10px;
-        }
-        .alert-count {
-            background: #ecf0f1;
-            padding: 10px;
-            border-radius: 3px;
-            margin: 10px 0;
-        }
-        .alert-list {
-            list-style: none;
             padding: 0;
+            box-sizing: border-box;
         }
-        .alert-item {
-            background: #f9f9f9;
-            border-left: 4px solid #d9534f;
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: #1a1a2e;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            color: #e0e0e0;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 15px;
+        }
+        
+        h1 {
+            font-size: 28px;
+            color: #667eea;
+        }
+        
+        .btn-create {
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.3s;
+        }
+        
+        .btn-create:hover {
+            background: #764ba2;
+        }
+        
+        .messages {
+            margin-bottom: 20px;
+        }
+        
+        .alert-message {
             padding: 15px;
-            margin: 10px 0;
-            border-radius: 3px;
+            background: #2ecc71;
+            color: white;
+            border-radius: 5px;
+            margin-bottom: 10px;
         }
-        .severity-high {
-            border-left-color: #d9534f;
-            background: #fdeaea;
+        
+        .filters {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
         }
-        .severity-critical {
-            border-left-color: #c0392b;
-            background: #fadbd8;
+        
+        .filter-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
         }
-        .severity-medium {
-            border-left-color: #f39c12;
-            background: #fef5e7;
-        }
-        .event {
+        
+        .filter-group label {
             font-weight: bold;
-            font-size: 1.1em;
-            color: #333;
+            color: #667eea;
         }
-        .details {
+        
+        .filter-group select {
+            padding: 8px 12px;
+            background: #16213e;
+            color: #e0e0e0;
+            border: 1px solid #667eea;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .btn-clear {
+            background: #e74c3c;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .btn-clear:hover {
+            background: #c0392b;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        thead {
+            background: #0f3460;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #16213e;
+        }
+        
+        tbody tr:hover {
+            background: #16213e;
+            transition: 0.2s;
+        }
+        
+        .severity {
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            text-align: center;
+            min-width: 80px;
+        }
+        
+        .severity.low {
+            background: #3498db;
+            color: white;
+        }
+        
+        .severity.medium {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .severity.high {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .severity.critical {
+            background: #8b0000;
+            color: white;
+        }
+        
+        .status {
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            text-align: center;
+            min-width: 100px;
+        }
+        
+        .status.open {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .status.in_progress {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .status.resolved {
+            background: #2ecc71;
+            color: white;
+        }
+        
+        .status.false_positive {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .no-alerts {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-size: 16px;
+        }
+        
+        .alert-count {
+            color: #999;
+            font-size: 14px;
             margin-top: 10px;
-            font-size: 0.9em;
-            color: #555;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🚨 SOC Alert Dashboard</h1>
+        <header>
+            <h1>🛡️ SOC Alert Dashboard</h1>
+            <a href="{% url 'create_alert' %}" class="btn-create">+ Create Alert</a>
+        </header>
         
-        <div class="alert-count">
-    <strong>Total Alerts:</strong> {{ total_alerts }}
-    <a href="{% url 'create_alert' %}" style="float: right; color: #d9534f; text-decoration: none; font-weight: bold;">
-        + Create Alert
-    </a>
-</div>
-
-        <ul class="alert-list">
-            {% for alert in alerts %}
-                <li class="alert-item severity-{{ alert.severity|lower }}">
-                    <div class="event">{{ alert.event }}</div>
-                    <div class="details">
-                        <strong>Severity:</strong> {{ alert.severity }} | 
-                        <strong>Source IP:</strong> {{ alert.source_ip }} | 
-                        <strong>Destination IP:</strong> {{ alert.destination_ip }} | 
-                        <strong>Time:</strong> {{ alert.timestamp }}
-                    </div>
-                </li>
-            {% endfor %}
-        </ul>
+        <!-- Display success messages -->
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="alert-message">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        
+        <!-- Filters -->
+        <div class="filters">
+            <div class="filter-group">
+                <label>Filter by Severity:</label>
+                <select onchange="filterBySeverity(this.value)">
+                    <option value="">All Severities</option>
+                    <option value="LOW" {% if severity_filter == 'LOW' %}selected{% endif %}>Low</option>
+                    <option value="MEDIUM" {% if severity_filter == 'MEDIUM' %}selected{% endif %}>Medium</option>
+                    <option value="HIGH" {% if severity_filter == 'HIGH' %}selected{% endif %}>High</option>
+                    <option value="CRITICAL" {% if severity_filter == 'CRITICAL' %}selected{% endif %}>Critical</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Filter by Status:</label>
+                <select onchange="filterByStatus(this.value)">
+                    <option value="">All Statuses</option>
+                    <option value="OPEN" {% if status_filter == 'OPEN' %}selected{% endif %}>Open</option>
+                    <option value="IN_PROGRESS" {% if status_filter == 'IN_PROGRESS' %}selected{% endif %}>In Progress</option>
+                    <option value="RESOLVED" {% if status_filter == 'RESOLVED' %}selected{% endif %}>Resolved</option>
+                    <option value="FALSE_POSITIVE" {% if status_filter == 'FALSE_POSITIVE' %}selected{% endif %}>False Positive</option>
+                </select>
+            </div>
+            
+            <a href="{% url 'alert_list' %}" class="btn-clear">Clear Filters</a>
+        </div>
+        
+        <!-- Alerts Table -->
+        {% if alerts %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Event</th>
+                        <th>Source IP</th>
+                        <th>Destination IP</th>
+                        <th>Port</th>
+                        <th>Protocol</th>
+                        <th>Severity</th>
+                        <th>Status</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alert in alerts %}
+                        <tr>
+                            <td>{{ alert.event }}</td>
+                            <td>{{ alert.source_ip }}</td>
+                            <td>{{ alert.destination_ip }}</td>
+                            <td>{{ alert.destination_port }}</td>
+                            <td>{{ alert.protocol }}</td>
+                            <td><span class="severity {{ alert.severity|lower }}">{{ alert.severity }}</span></td>
+                            <td><span class="status {{ alert.status|lower }}">{{ alert.status }}</span></td>
+                            <td>{{ alert.timestamp|date:"M d, Y H:i" }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="alert-count">Total alerts: {{ alerts|length }}</div>
+        {% else %}
+            <div class="no-alerts">
+                📭 No alerts found. <a href="{% url 'create_alert' %}" style="color: #667eea;">Create one</a>
+            </div>
+        {% endif %}
     </div>
+    
+    <script>
+        function filterBySeverity(severity) {
+            if (severity) {
+                window.location.href = `?severity=${severity}`;
+            } else {
+                window.location.href = '{% url "alert_list" %}';
+            }
+        }
+        
+        function filterByStatus(status) {
+            if (status) {
+                window.location.href = `?status=${status}`;
+            } else {
+                window.location.href = '{% url "alert_list" %}';
+            }
+        }
+    </script>
 </body>
 </html>
