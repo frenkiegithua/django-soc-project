@@ -68,6 +68,42 @@
             margin-bottom: 10px;
         }
         
+        .search-bar {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .search-bar input {
+            flex: 1;
+            padding: 10px 15px;
+            background: #16213e;
+            color: #e0e0e0;
+            border: 1px solid #667eea;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .search-bar input:focus {
+            outline: none;
+            border-color: #764ba2;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-search {
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .btn-search:hover {
+            background: #764ba2;
+        }
+        
         .filters {
             display: flex;
             gap: 15px;
@@ -126,6 +162,12 @@
             text-align: left;
             font-weight: bold;
             color: #667eea;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        th:hover {
+            background: #16213e;
         }
         
         td {
@@ -201,10 +243,49 @@
             font-size: 16px;
         }
         
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .pagination a, .pagination span {
+            padding: 8px 12px;
+            border: 1px solid #667eea;
+            border-radius: 5px;
+            text-decoration: none;
+            color: #667eea;
+            transition: 0.3s;
+        }
+        
+        .pagination a:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .pagination .current {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .pagination .disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            color: #999;
+        }
+        
         .alert-count {
             color: #999;
             font-size: 14px;
             margin-top: 10px;
+        }
+        
+        .sort-indicator {
+            font-size: 10px;
+            margin-left: 5px;
         }
     </style>
 </head>
@@ -224,11 +305,25 @@
             </div>
         {% endif %}
         
-        <!-- Filters -->
+        <!-- SEARCH BAR -->
+        <form method="GET" class="search-bar">
+            <input 
+                type="text" 
+                name="q" 
+                placeholder="🔍 Search alerts by event, IP, or notes..." 
+                value="{{ search_query }}"
+            >
+            <button type="submit" class="btn-search">Search</button>
+            {% if search_query %}
+                <a href="{% url 'alert_list' %}" class="btn-clear">Clear Search</a>
+            {% endif %}
+        </form>
+        
+        <!-- Filters & Sorting -->
         <div class="filters">
             <div class="filter-group">
                 <label>Filter by Severity:</label>
-                <select onchange="filterBySeverity(this.value)">
+                <select onchange="applyFilter(this, 'severity')">
                     <option value="">All Severities</option>
                     <option value="LOW" {% if severity_filter == 'LOW' %}selected{% endif %}>Low</option>
                     <option value="MEDIUM" {% if severity_filter == 'MEDIUM' %}selected{% endif %}>Medium</option>
@@ -239,7 +334,7 @@
             
             <div class="filter-group">
                 <label>Filter by Status:</label>
-                <select onchange="filterByStatus(this.value)">
+                <select onchange="applyFilter(this, 'status')">
                     <option value="">All Statuses</option>
                     <option value="OPEN" {% if status_filter == 'OPEN' %}selected{% endif %}>Open</option>
                     <option value="IN_PROGRESS" {% if status_filter == 'IN_PROGRESS' %}selected{% endif %}>In Progress</option>
@@ -248,7 +343,17 @@
                 </select>
             </div>
             
-            <a href="{% url 'alert_list' %}" class="btn-clear">Clear Filters</a>
+            <div class="filter-group">
+                <label>Sort by:</label>
+                <select onchange="applyFilter(this, 'sort')">
+                    <option value="-timestamp" {% if sort_by == '-timestamp' %}selected{% endif %}>Newest First</option>
+                    <option value="timestamp" {% if sort_by == 'timestamp' %}selected{% endif %}>Oldest First</option>
+                    <option value="-severity" {% if sort_by == '-severity' %}selected{% endif %}>Severity (High to Low)</option>
+                    <option value="event" {% if sort_by == 'event' %}selected{% endif %}>Event Name (A-Z)</option>
+                </select>
+            </div>
+            
+            <a href="{% url 'alert_list' %}" class="btn-clear">Reset All</a>
         </div>
         
         <!-- Alerts Table -->
@@ -269,41 +374,76 @@
                 <tbody>
                     {% for alert in alerts %}
                         <tr>
-                            <td>{{ alert.event }}</td>
-                            <td>{{ alert.source_ip }}</td>
-                            <td>{{ alert.destination_ip }}</td>
-                            <td>{{ alert.destination_port }}</td>
-                            <td>{{ alert.protocol }}</td>
-                            <td><span class="severity {{ alert.severity|lower }}">{{ alert.severity }}</span></td>
-                            <td><span class="status {{ alert.status|lower }}">{{ alert.status }}</span></td>
-                            <td>{{ alert.timestamp|date:"M d, Y H:i" }}</td>
+                            <td>{{ alert.0 }}</td>
+                            <td>{{ alert.1 }}</td>
+                            <td>{{ alert.2 }}</td>
+                            <td>{{ alert.3 }}</td>
+                            <td>{{ alert.4 }}</td>
+                            <td><span class="severity {{ alert.5|lower }}">{{ alert.5 }}</span></td>
+                            <td><span class="status {{ alert.6|lower }}">{{ alert.6 }}</span></td>
+                            <td>{{ alert.7|date:"M d, Y H:i" }}</td>
                         </tr>
                     {% endfor %}
                 </tbody>
             </table>
-            <div class="alert-count">Total alerts: {{ alerts|length }}</div>
+            
+            <!-- Alert Count -->
+            <div class="alert-count">
+                Showing page {{ page_obj.number }} of {{ paginator.num_pages }} 
+                | Total alerts: {{ paginator.count }}
+            </div>
+            
+            <!-- PAGINATION -->
+            <div class="pagination">
+                {% if page_obj.has_previous %}
+                    <a href="?page=1{{ query_string }}">« First</a>
+                    <a href="?page={{ page_obj.previous_page_number }}{{ query_string }}">‹ Previous</a>
+                {% else %}
+                    <span class="disabled">« First</span>
+                    <span class="disabled">‹ Previous</span>
+                {% endif %}
+                
+                {% for num in paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <span class="current">{{ num }}</span>
+                    {% else %}
+                        <a href="?page={{ num }}{{ query_string }}">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{{ query_string }}">Next ›</a>
+                    <a href="?page={{ paginator.num_pages }}{{ query_string }}">Last »</a>
+                {% else %}
+                    <span class="disabled">Next ›</span>
+                    <span class="disabled">Last »</span>
+                {% endif %}
+            </div>
         {% else %}
             <div class="no-alerts">
-                📭 No alerts found. <a href="{% url 'create_alert' %}" style="color: #667eea;">Create one</a>
+                📭 No alerts found. 
+                {% if search_query or severity_filter or status_filter %}
+                    <a href="{% url 'alert_list' %}" style="color: #667eea;">Clear filters</a> 
+                    or 
+                {% endif %}
+                <a href="{% url 'create_alert' %}" style="color: #667eea;">create one</a>
             </div>
         {% endif %}
     </div>
     
     <script>
-        function filterBySeverity(severity) {
-            if (severity) {
-                window.location.href = `?severity=${severity}`;
+        function applyFilter(select, filterType) {
+            const value = select.value;
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            if (value) {
+                urlParams.set(filterType, value);
             } else {
-                window.location.href = '{% url "alert_list" %}';
+                urlParams.delete(filterType);
             }
-        }
-        
-        function filterByStatus(status) {
-            if (status) {
-                window.location.href = `?status=${status}`;
-            } else {
-                window.location.href = '{% url "alert_list" %}';
-            }
+            
+            // Keep search query when filtering
+            window.location.href = window.location.pathname + '?' + urlParams.toString();
         }
     </script>
 </body>
