@@ -94,7 +94,7 @@ from datetime import datetime
 
 class AlertViewSet(viewsets.ModelViewSet):
     """
-    REST API for Alert management.
+    REST API for Alert management (requires authentication).
     
     Endpoints:
     - GET    /api/alerts/                  - List all alerts
@@ -103,12 +103,12 @@ class AlertViewSet(viewsets.ModelViewSet):
     - PUT    /api/alerts/<id>/             - Update alert
     - DELETE /api/alerts/<id>/             - Delete alert
     - GET    /api/alerts/export/csv/       - Export to CSV
-    - POST   /api/alerts/webhook/          - Webhook receiver
+    - POST   /api/alerts/webhook/          - Webhook receiver (no auth)
     """
     
     queryset = Alert.objects.all()
     serializer_class = AlertSerializer
-    permission_classes = [AllowAny]  # In production, use IsAuthenticated
+    permission_classes = [IsAuthenticated]  # CHANGE FROM AllowAny
     
     def get_serializer_class(self):
         """Use detailed serializer for detail views."""
@@ -147,6 +147,14 @@ class AlertViewSet(viewsets.ModelViewSet):
         
         return queryset
     
+    def perform_create(self, serializer):
+        """Automatically set created_by when creating an alert."""
+        serializer.save(created_by=self.request.user)
+    
+    def perform_update(self, serializer):
+        """Automatically set modified_by when updating an alert."""
+        serializer.save(modified_by=self.request.user)
+    
     def create(self, request, *args, **kwargs):
         """Create alert with validation."""
         serializer = self.get_serializer(data=request.data)
@@ -154,38 +162,35 @@ class AlertViewSet(viewsets.ModelViewSet):
         self.perform_create(serializer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
-    @action(detail=False, methods=['get'], url_path='export/csv')
+    @action(detail=False, methods=['get'], url_path='export/csv', permission_classes=[IsAuthenticated])
     def export_csv(self, request):
-        """Export alerts to CSV format."""
+        """Export alerts to CSV format (requires authentication)."""
         alerts = self.get_queryset()
         
-        # Create CSV response
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="alerts_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
         
         writer = csv.writer(response)
-        
-        # Write header
         writer.writerow([
             'ID', 'Event', 'Source IP', 'Destination IP',
             'Source Port', 'Destination Port', 'Protocol',
-            'Severity', 'Status', 'Timestamp', 'Event Time', 'Notes'
+            'Severity', 'Status', 'Timestamp', 'Event Time', 'Notes', 'Created By', 'Modified By'
         ])
         
-        # Write data rows
         for alert in alerts:
             writer.writerow([
                 alert.id, alert.event, alert.source_ip, alert.destination_ip,
                 alert.source_port or '', alert.destination_port or '', alert.protocol,
-                alert.severity, alert.status, alert.timestamp, alert.event_time or '', alert.notes
+                alert.severity, alert.status, alert.timestamp, alert.event_time or '', alert.notes,
+                alert.created_by or '', alert.modified_by or ''
             ])
         
         return response
     
-    @action(detail=False, methods=['post'], url_path='webhook')
+    @action(detail=False, methods=['post'], url_path='webhook', permission_classes=[AllowAny])
     def webhook(self, request):
         """
-        Webhook receiver for SIEM systems (Splunk, ELK, etc).
+        Webhook receiver for SIEM systems (no authentication required).
         
         Expected JSON:
         {
@@ -202,11 +207,13 @@ class AlertViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         
         if serializer.is_valid():
-            # Add webhook source to notes
             notes = serializer.validated_data.get('notes', '')
-            serializer.validated_data['notes'] = f"{notes} [Webhook: {request.META.get('REMOTE_ADDR')}]"
+            serializer.validated_data['notes'] = f"{notes} [Webhook from {request.META.get('REMOTE_ADDR')}]"
             
-            self.perform_create(serializer)
+            # Get or create a system user for webhooks
+            system_user, _ = User.objects.get_or_create(username='webhook_system')
+            serializer.save(created_by=system_user)
+            
             return Response(
                 {'status': 'success', 'id': serializer.data['id']},
                 status=status.HTTP_201_CREATED
@@ -217,9 +224,9 @@ class AlertViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
     
-    @action(detail=True, methods=['patch'])
+    @action(detail=True, methods=['patch'], permission_classes=[IsAuthenticated])
     def update_status(self, request, pk=None):
-        """Quick endpoint to update only the status."""
+        """Quick endpoint to update only the status (requires authentication)."""
         alert = self.get_object()
         new_status = request.data.get('status')
         
@@ -230,6 +237,7 @@ class AlertViewSet(viewsets.ModelViewSet):
             )
         
         alert.status = new_status
+        alert.modified_by = request.user
         alert.save()
         serializer = self.get_serializer(alert)
         return Response(serializer.data)

@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 class Alert(models.Model):
     # Severity choices
@@ -33,16 +34,22 @@ class Alert(models.Model):
     
     notes = models.TextField(blank=True, help_text="Analyst notes")
     
+    # AUDIT TRAIL: Track who created and modified
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='alerts_created')
+    modified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='alerts_modified')
+    modified_at = models.DateTimeField(auto_now=True, help_text="Last modification time")
+    
     class Meta:
-        ordering = ['-timestamp']  # Newest first
+        ordering = ['-timestamp']
         indexes = [
             models.Index(fields=['severity']),
             models.Index(fields=['status']),
             models.Index(fields=['timestamp']),
         ]
+        permissions = [
+            ('can_resolve_critical', 'Can resolve critical alerts'),
+            ('can_export_alerts', 'Can export alerts to CSV'),
+        ]
     
     def __str__(self):
         return f"{self.event} - {self.severity} ({self.source_ip})"
-
-
-
