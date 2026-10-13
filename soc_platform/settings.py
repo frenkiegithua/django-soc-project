@@ -144,3 +144,16 @@ REST_FRAMEWORK = {
         'user': '1000/hour'      # 1000 requests per hour for authenticated users
     }
 }
+
+# Email Configuration (for notifications)
+# Email Configuration (for notifications) - Django 6.1+
+MAILERS = {
+    'default': {
+        'BACKEND': 'django.core.mail.backends.console.EmailBackend',  # Console output for testing
+    }
+}
+
+DEFAULT_FROM_EMAIL = 'soc-alerts@example.com'
+
+# Slack Configuration (optional)
+SLACK_WEBHOOK_URL = 'https://hooks.slack.com/services/YOUR/WEBHOOK/URL'

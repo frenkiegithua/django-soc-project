@@ -53,3 +53,50 @@ class Alert(models.Model):
     
     def __str__(self):
         return f"{self.event} - {self.severity} ({self.source_ip})"
+
+from django.utils import timezone
+from datetime import timedelta
+
+class AlertAnalytics(models.Model):
+    """Track alert statistics for dashboards."""
+    date = models.DateField(auto_now_add=True)
+    total_alerts = models.IntegerField(default=0)
+    critical_alerts = models.IntegerField(default=0)
+    high_alerts = models.IntegerField(default=0)
+    medium_alerts = models.IntegerField(default=0)
+    low_alerts = models.IntegerField(default=0)
+    resolved_alerts = models.IntegerField(default=0)
+    
+    class Meta:
+        ordering = ['-date']
+    
+    def __str__(self):
+        return f"Analytics for {self.date}"
+
+
+class Incident(models.Model):
+    """Group related alerts into incidents."""
+    INCIDENT_STATUS = [
+        ('NEW', 'New'),
+        ('INVESTIGATING', 'Investigating'),
+        ('CONTAINED', 'Contained'),
+        ('RESOLVED', 'Resolved'),
+        ('CLOSED', 'Closed'),
+    ]
+    
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    severity = models.CharField(max_length=20, choices=Alert.SEVERITY_CHOICES, default='MEDIUM')
+    status = models.CharField(max_length=20, choices=INCIDENT_STATUS, default='NEW')
+    alerts = models.ManyToManyField(Alert, related_name='incidents')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='incidents_created')
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='incidents_assigned')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"INC-{self.id}: {self.title}"

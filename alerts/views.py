@@ -1,17 +1,35 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
+from django.contrib.auth.models import User
 from django.db.models import Q
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from .models import Alert
+from django.http import HttpResponse
+from django.utils import timezone
+from datetime import datetime
+import csv
+import logging
+
+from rest_framework import viewsets, status
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, AllowAny
+
+from .models import Alert, Incident
 from .forms import AlertForm
+from .serializers import AlertSerializer, AlertDetailSerializer, IncidentSerializer
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# WEB VIEWS (for browser)
+# ============================================================================
 
 def alert_list(request):
     """Display alerts with search, filtering, sorting, and pagination."""
     
-    # Start with all alerts
     alerts = Alert.objects.all()
     
-    # SEARCH: Filter by event, source_ip, destination_ip, or notes
     search_query = request.GET.get('q', '')
     if search_query:
         alerts = alerts.filter(
@@ -21,29 +39,23 @@ def alert_list(request):
             Q(notes__icontains=search_query)
         )
     
-    # FILTER: By severity
     severity = request.GET.get('severity')
     if severity:
         alerts = alerts.filter(severity=severity)
     
-    # FILTER: By status
-    status = request.GET.get('status')
-    if status:
-        alerts = alerts.filter(status=status)
+    status_filter = request.GET.get('status')
+    if status_filter:
+        alerts = alerts.filter(status=status_filter)
     
-    # SORT: Order by timestamp (newest first) or severity
-    sort_by = request.GET.get('sort', '-timestamp')  # Default: newest first
+    sort_by = request.GET.get('sort', '-timestamp')
     if sort_by in ['-timestamp', 'timestamp', '-severity', 'severity', '-event', 'event']:
         alerts = alerts.order_by(sort_by)
     
-    # OPTIMIZE: Only fetch fields we use in the template
-    # (This prevents N+1 query problem)
     alerts = alerts.values_list(
         'id', 'event', 'source_ip', 'destination_ip', 
         'destination_port', 'protocol', 'severity', 'status', 'timestamp'
     )
     
-    # PAGINATION: Show 10 alerts per page
     paginator = Paginator(alerts, 10)
     page = request.GET.get('page', 1)
     
@@ -58,7 +70,7 @@ def alert_list(request):
         'alerts': alerts_page,
         'search_query': search_query,
         'severity_filter': severity,
-        'status_filter': status,
+        'status_filter': status_filter,
         'sort_by': sort_by,
         'paginator': paginator,
         'page_obj': alerts_page,
@@ -80,57 +92,34 @@ def create_alert(request):
     context = {'form': form}
     return render(request, 'alerts/create_alert.html', context)
 
-# REST API VIEWS
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.parsers import JSONParser
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from .serializers import AlertSerializer, AlertDetailSerializer
-import csv
-from django.http import HttpResponse
-from datetime import datetime
 
+# ============================================================================
+# REST API VIEWS (for external tools/SIEM)
+# ============================================================================
 
 class AlertViewSet(viewsets.ModelViewSet):
-    """
-    REST API for Alert management (requires authentication).
-    
-    Endpoints:
-    - GET    /api/alerts/                  - List all alerts
-    - POST   /api/alerts/                  - Create new alert
-    - GET    /api/alerts/<id>/             - Get alert details
-    - PUT    /api/alerts/<id>/             - Update alert
-    - DELETE /api/alerts/<id>/             - Delete alert
-    - GET    /api/alerts/export/csv/       - Export to CSV
-    - POST   /api/alerts/webhook/          - Webhook receiver (no auth)
-    """
+    """REST API for Alert management (requires authentication)."""
     
     queryset = Alert.objects.all()
     serializer_class = AlertSerializer
-    permission_classes = [IsAuthenticated]  # CHANGE FROM AllowAny
+    permission_classes = [IsAuthenticated]
     
     def get_serializer_class(self):
-        """Use detailed serializer for detail views."""
         if self.action == 'retrieve':
             return AlertDetailSerializer
         return AlertSerializer
     
     def get_queryset(self):
-        """Support filtering via query parameters."""
         queryset = Alert.objects.all()
         
-        # Filter by severity
         severity = self.request.query_params.get('severity')
         if severity:
             queryset = queryset.filter(severity=severity)
         
-        # Filter by status
         status_filter = self.request.query_params.get('status')
         if status_filter:
             queryset = queryset.filter(status=status_filter)
         
-        # Search
         search_query = self.request.query_params.get('q')
         if search_query:
             queryset = queryset.filter(
@@ -140,7 +129,6 @@ class AlertViewSet(viewsets.ModelViewSet):
                 Q(notes__icontains=search_query)
             )
         
-        # Sort
         ordering = self.request.query_params.get('ordering', '-timestamp')
         if ordering in ['-timestamp', 'timestamp', '-severity', 'severity', '-event', 'event']:
             queryset = queryset.order_by(ordering)
@@ -148,15 +136,12 @@ class AlertViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
-        """Automatically set created_by when creating an alert."""
         serializer.save(created_by=self.request.user)
     
     def perform_update(self, serializer):
-        """Automatically set modified_by when updating an alert."""
         serializer.save(modified_by=self.request.user)
     
     def create(self, request, *args, **kwargs):
-        """Create alert with validation."""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
@@ -164,7 +149,6 @@ class AlertViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'], url_path='export/csv', permission_classes=[IsAuthenticated])
     def export_csv(self, request):
-        """Export alerts to CSV format (requires authentication)."""
         alerts = self.get_queryset()
         
         response = HttpResponse(content_type='text/csv')
@@ -182,35 +166,20 @@ class AlertViewSet(viewsets.ModelViewSet):
                 alert.id, alert.event, alert.source_ip, alert.destination_ip,
                 alert.source_port or '', alert.destination_port or '', alert.protocol,
                 alert.severity, alert.status, alert.timestamp, alert.event_time or '', alert.notes,
-                alert.created_by or '', alert.modified_by or ''
+                alert.created_by.username if alert.created_by else '', 
+                alert.modified_by.username if alert.modified_by else ''
             ])
         
         return response
     
     @action(detail=False, methods=['post'], url_path='webhook', permission_classes=[AllowAny])
     def webhook(self, request):
-        """
-        Webhook receiver for SIEM systems (no authentication required).
-        
-        Expected JSON:
-        {
-            "event": "Failed login attempt",
-            "source_ip": "192.168.1.100",
-            "destination_ip": "10.0.0.5",
-            "severity": "HIGH",
-            "source_port": 54321,
-            "destination_port": 22,
-            "protocol": "TCP",
-            "notes": "Received from Splunk webhook"
-        }
-        """
         serializer = self.get_serializer(data=request.data)
         
         if serializer.is_valid():
             notes = serializer.validated_data.get('notes', '')
             serializer.validated_data['notes'] = f"{notes} [Webhook from {request.META.get('REMOTE_ADDR')}]"
             
-            # Get or create a system user for webhooks
             system_user, _ = User.objects.get_or_create(username='webhook_system')
             serializer.save(created_by=system_user)
             
@@ -226,7 +195,6 @@ class AlertViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['patch'], permission_classes=[IsAuthenticated])
     def update_status(self, request, pk=None):
-        """Quick endpoint to update only the status (requires authentication)."""
         alert = self.get_object()
         new_status = request.data.get('status')
         
@@ -241,3 +209,76 @@ class AlertViewSet(viewsets.ModelViewSet):
         alert.save()
         serializer = self.get_serializer(alert)
         return Response(serializer.data)
+
+
+class IncidentViewSet(viewsets.ModelViewSet):
+    """REST API for Incident management (requires authentication)."""
+    
+    queryset = Incident.objects.all()
+    serializer_class = IncidentSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def perform_create(self, serializer):
+        incident = serializer.save(created_by=self.request.user)
+        
+        try:
+            from .notifications import send_incident_email, send_to_slack, send_escalation_webhook
+            send_incident_email(incident)
+            send_to_slack(incident)
+            send_escalation_webhook(incident)
+        except Exception as e:
+            logger.error(f"Notification error for incident {incident.id}: {e}")
+    
+    @action(detail=True, methods=['patch'])
+    def resolve(self, request, pk=None):
+        incident = self.get_object()
+        incident.status = 'RESOLVED'
+        incident.resolved_at = timezone.now()
+        incident.save()
+        serializer = self.get_serializer(incident)
+        return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def alert_stats(request):
+    """Get alert statistics for dashboard."""
+    total = Alert.objects.count()
+    critical = Alert.objects.filter(severity='CRITICAL').count()
+    high = Alert.objects.filter(severity='HIGH').count()
+    medium = Alert.objects.filter(severity='MEDIUM').count()
+    low = Alert.objects.filter(severity='LOW').count()
+    
+    open_alerts = Alert.objects.filter(status='OPEN').count()
+    resolved = Alert.objects.filter(status='RESOLVED').count()
+    
+    return Response({
+        'total': total,
+        'by_severity': {
+            'critical': critical,
+            'high': high,
+            'medium': medium,
+            'low': low,
+        },
+        'by_status': {
+            'open': open_alerts,
+            'resolved': resolved,
+        },
+        'percentage_critical': round((critical / total * 100) if total > 0 else 0, 2),
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def alert_count(request):
+    """Get real-time alert counts for dashboard updates."""
+    critical_count = Alert.objects.filter(severity='CRITICAL', status='OPEN').count()
+    high_count = Alert.objects.filter(severity='HIGH', status='OPEN').count()
+    open_count = Alert.objects.filter(status='OPEN').count()
+    
+    return Response({
+        'critical_open': critical_count,
+        'high_open': high_count,
+        'total_open': open_count,
+        'needs_immediate_attention': critical_count > 0,
+    })
