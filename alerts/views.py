@@ -25,6 +25,13 @@ logger = logging.getLogger(__name__)
 # WEB VIEWS (for browser)
 # ============================================================================
 
+def dashboard(request):
+    """Display real-time SOC dashboard."""
+    context = {
+        'token': request.user.auth_token.key if hasattr(request.user, 'auth_token') else ''
+    }
+    return render(request, 'alerts/dashboard.html', context)
+
 def alert_list(request):
     """Display alerts with search, filtering, sorting, and pagination."""
     
