@@ -167,3 +167,6 @@ CHANNEL_LAYERS = {
         'BACKEND': 'channels.layers.InMemoryChannelLayer'
     }
 }
+
+# Where @login_required sends anonymous users
+LOGIN_URL = '/admin/login/'
