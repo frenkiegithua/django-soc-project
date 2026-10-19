@@ -19,6 +19,7 @@ from .models import Alert, Incident
 from .forms import AlertForm
 from .serializers import AlertSerializer, AlertDetailSerializer, IncidentSerializer
 from .signals import build_dashboard_stats
+from .audit import record_change
 
 logger = logging.getLogger(__name__)
 
@@ -226,6 +227,15 @@ class IncidentViewSet(viewsets.ModelViewSet):
     serializer_class = IncidentSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        queryset = Incident.objects.select_related("created_by", "assigned_to").prefetch_related("alerts")
+
+        # GET /api/incidents/?assigned=me  ->  only incidents owned by the caller
+        if self.request.query_params.get("assigned") == "me":
+            queryset = queryset.filter(assigned_to=self.request.user)
+
+        return queryset
+
     def perform_create(self, serializer):
         incident = serializer.save(created_by=self.request.user)
 
@@ -238,11 +248,39 @@ class IncidentViewSet(viewsets.ModelViewSet):
             logger.error(f"Notification error for incident {incident.id}: {e}")
 
     @action(detail=True, methods=["patch"])
+    def assign(self, request, pk=None):
+        """Assign an incident to a user. Send {"assigned_to": <user_id>} or null to unassign."""
+        incident = self.get_object()
+        old_owner = incident.assigned_to_id
+        user_id = request.data.get("assigned_to")
+
+        if user_id is None:
+            incident.assigned_to = None
+        else:
+            try:
+                incident.assigned_to = User.objects.get(pk=user_id)
+            except (User.DoesNotExist, ValueError, TypeError):
+                return Response({"error": "User not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+        incident.save()
+        record_change(
+            actor=request.user, target=incident, field="assigned_to",
+            old=old_owner, new=incident.assigned_to_id, action="assign",
+        )
+        return Response(self.get_serializer(incident).data)
+
+    @action(detail=True, methods=["patch"])
     def resolve(self, request, pk=None):
         incident = self.get_object()
+        old_status = incident.status
+
         incident.status = "RESOLVED"
         incident.resolved_at = timezone.now()
         incident.save()
+        record_change(
+            actor=request.user, target=incident, field="status",
+            old=old_status, new=incident.status, action="resolve",
+        )
         return Response(self.get_serializer(incident).data)
 
 

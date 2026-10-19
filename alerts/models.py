@@ -100,3 +100,28 @@ class Incident(models.Model):
     
     def __str__(self):
         return f"INC-{self.id}: {self.title}"
+        
+
+class AuditLog(models.Model):
+    """Append-only record of every change to a tracked object."""
+
+    actor = models.ForeignKey(User, on_delete=models.PROTECT, related_name="audit_entries")
+    action = models.CharField(max_length=50)        # e.g. "assign", "resolve"
+    target_type = models.CharField(max_length=50)   # e.g. "Incident"
+    target_id = models.PositiveIntegerField()
+    field = models.CharField(max_length=50, blank=True)
+    old_value = models.TextField(null=True, blank=True)
+    new_value = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["target_type", "target_id"])]
+
+    def save(self, *args, **kwargs):
+        if self.pk is not None:
+            raise PermissionError("Audit entries are append-only and cannot be modified.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise PermissionError("Audit entries cannot be deleted.")
