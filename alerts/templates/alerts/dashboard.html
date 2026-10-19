@@ -101,6 +101,12 @@
             </div>
 
             <div class="metric-card">
+                <h2>Open Incidents</h2>
+                <div class="metric-value" id="open_incidents" style="color: #bb86fc;">0</div>
+                <div class="status" id="incidents_status">Waiting for data...</div>
+            </div>
+
+            <div class="metric-card">
                 <h2>High Open</h2>
                 <div class="metric-value high" id="high_open">0</div>
                 <div class="status" id="high_status">Waiting for data...</div>
@@ -135,6 +141,7 @@
             document.getElementById('critical_open').textContent = data.critical_open;
             document.getElementById('high_open').textContent = data.high_open;
             document.getElementById('total_open').textContent = data.total_open;
+            document.getElementById('open_incidents').textContent = data.open_incidents;
 
             ['critical_status', 'high_status', 'total_status'].forEach(id => {
                 document.getElementById(id).textContent = `Last update: ${now}`;
