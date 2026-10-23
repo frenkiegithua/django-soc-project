@@ -12,6 +12,7 @@ import logging
 
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
@@ -20,6 +21,13 @@ from .forms import AlertForm
 from .serializers import AlertSerializer, AlertDetailSerializer, IncidentSerializer
 from .signals import build_dashboard_stats
 from .audit import record_change
+from .permissions import (
+    IsSOCMember,
+    can_assign,
+    can_resolve,
+    is_lead,
+    open_alert_count,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -221,11 +229,18 @@ class AlertViewSet(viewsets.ModelViewSet):
 
 
 class IncidentViewSet(viewsets.ModelViewSet):
-    """REST API for Incident management (requires authentication)."""
+    """
+    REST API for Incident management.
+
+    Roles (see alerts/permissions.py):
+      - Any SOC member: list, view, create, claim/unassign (within the rules), resolve own incidents
+      - SOC lead: reassign anyone's incident, resolve any incident, edit or delete incidents
+      - Resolve is blocked (409) while any linked alert is still open.
+    """
 
     queryset = Incident.objects.all()
     serializer_class = IncidentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSOCMember]
 
     def get_queryset(self):
         queryset = Incident.objects.select_related("created_by", "assigned_to").prefetch_related("alerts")
@@ -247,6 +262,18 @@ class IncidentViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.error(f"Notification error for incident {incident.id}: {e}")
 
+    # Generic edits and deletes bypass the assign and resolve rules and the audit
+    # trail, so they are lead-only. partial_update calls update(), so it is covered too.
+    def update(self, request, *args, **kwargs):
+        if not is_lead(request.user):
+            raise PermissionDenied("Only a SOC lead can edit incidents directly. Use the assign or resolve actions.")
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if not is_lead(request.user):
+            raise PermissionDenied("Only a SOC lead can delete incidents.")
+        return super().destroy(request, *args, **kwargs)
+
     @action(detail=True, methods=["patch"])
     def assign(self, request, pk=None):
         """Assign an incident to a user. Send {"assigned_to": <user_id>} or null to unassign."""
@@ -255,13 +282,20 @@ class IncidentViewSet(viewsets.ModelViewSet):
         user_id = request.data.get("assigned_to")
 
         if user_id is None:
-            incident.assigned_to = None
+            new_assignee = None
         else:
             try:
-                incident.assigned_to = User.objects.get(pk=user_id)
+                new_assignee = User.objects.get(pk=user_id)
             except (User.DoesNotExist, ValueError, TypeError):
                 return Response({"error": "User not found"}, status=status.HTTP_400_BAD_REQUEST)
 
+        if not can_assign(request.user, incident, new_assignee):
+            return Response(
+                {"error": "Only a SOC lead can reassign an incident owned by someone else."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        incident.assigned_to = new_assignee
         incident.save()
         record_change(
             actor=request.user, target=incident, field="assigned_to",
@@ -272,6 +306,21 @@ class IncidentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["patch"])
     def resolve(self, request, pk=None):
         incident = self.get_object()
+
+        if not can_resolve(request.user, incident):
+            return Response(
+                {"error": "You can only resolve incidents assigned to you."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        still_open = open_alert_count(incident)
+        if still_open:
+            return Response(
+                {"error": f"{still_open} linked alert(s) are still open. "
+                          "Mark them resolved or false positive before resolving the incident."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
         old_status = incident.status
 
         incident.status = "RESOLVED"
