@@ -1,20 +1,19 @@
 # Django SOC Platform 🛡️
 
-A Security Operations Center (SOC) platform built with Django to manage security alerts, track incidents, enforce role-based access control, and monitor incident activity in real time.
-
-🚧 **Status:** In Development
+A Django-based Security Operations Center (SOC) platform for managing security alerts, coordinating incident response, enforcing role-based access control, and monitoring incident activity in real time.
 
 ## ✨ Features
 
-- **Alert Management** — Manage security alerts and track their statuses.
-- **Incident Management** — Create, assign, investigate, and resolve incidents.
+- **Security Alert Management** — Track security alerts and their statuses throughout the investigation lifecycle.
+- **Incident Management** — Create, assign, manage, and resolve security incidents.
 - **Role-Based Access Control** — Separate permissions for SOC Analysts and SOC Leads.
-- **Incident Ownership** — Analysts can claim unassigned incidents and resolve incidents assigned to them.
-- **Resolution Safeguards** — Prevent incident resolution while linked alerts remain open or in progress.
-- **Audit Logging** — Maintain an append-only record of incident changes.
-- **Real-Time Dashboard** — Push live incident-count updates using WebSockets.
-- **WebSocket Authentication** — Protect real-time connections with authentication.
-- **Secure API Operations** — Enforce permissions on sensitive incident updates and deletion.
+- **Incident Ownership** — Allow analysts to claim unassigned incidents, unassign themselves, and resolve incidents they own.
+- **Incident Reassignment** — Enable SOC Leads to reassign and resolve incidents across the team.
+- **Resolution Safeguards** — Prevent incident resolution while linked alerts remain `OPEN` or `IN_PROGRESS`.
+- **Append-Only Audit Logging** — Maintain a traceable record of incident changes and protect existing audit records against modification and deletion.
+- **Real-Time Dashboard** — Deliver live incident-count updates through WebSockets.
+- **WebSocket Authentication** — Authenticate WebSocket connections.
+- **Secure API Authorization** — Enforce permissions on sensitive incident operations and restrict generic incident updates and deletions to authorized SOC Leads.
 
 ## 🛠️ Tech Stack
 
@@ -23,20 +22,20 @@ A Security Operations Center (SOC) platform built with Django to manage security
 - Django REST Framework
 - Django Channels
 - WebSockets
-- Git & GitHub
+- Git and GitHub
 
-## 🔐 Access Control
+## 🔐 Role-Based Access Control
 
 | Capability | SOC Analyst | SOC Lead |
 |---|---|---|
-| Claim unassigned incidents | ✅ | Depends on configured permissions |
-| Unassign own incidents | ✅ | Depends on configured permissions |
+| Claim unassigned incidents | ✅ | Subject to configured permissions |
+| Unassign own incidents | ✅ | Subject to configured permissions |
 | Resolve own incidents | ✅ | ✅ |
 | Reassign any incident | ❌ | ✅ |
 | Resolve any incident | ❌ | ✅ |
-| Generic incident updates/deletion | ❌ | ✅ |
+| Generic incident updates and deletion | ❌ | ✅ |
 
-Incident resolution is blocked while linked alerts remain `OPEN` or `IN_PROGRESS`. Authorization is enforced on the backend, not just in the user interface.
+All protected operations are authorized on the backend. Incident resolution is blocked while any linked alert remains `OPEN` or `IN_PROGRESS`.
 
 ## 🚀 Getting Started
 
@@ -58,7 +57,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Configure the environment variables required by the project, then run:
+Configure the required environment variables, then initialize the database and SOC roles:
 
 ```bash
 python manage.py migrate
@@ -75,37 +74,25 @@ Open `http://127.0.0.1:8000/` in your browser.
 python manage.py test
 ```
 
-## 📈 Development Progress
+## 🧠 Key Engineering Concepts
 
-The project is being developed incrementally, with a focus on practical cybersecurity engineering and secure backend development.
-
-Recent milestones:
-
-- **Day 13:** WebSocket authentication and reconnection improvements.
-- **Day 14:** Real-time dashboard incident counts.
-- **Day 16:** Append-only incident audit logging.
-- **Day 17:** SOC Analyst and SOC Lead permissions and incident ownership rules.
-
-See [`PROGRESS.md`](PROGRESS.md) for development updates.
-
-## 🎯 Learning Objectives
-
-- Security alert triage and incident response workflows.
-- Role-based and object-level authorization.
-- Secure REST API development.
-- Real-time communication with WebSockets.
-- Audit logging and accountability.
-- Backend security testing.
+- Role-based and ownership-based authorization.
+- Secure REST API design.
+- Incident lifecycle and state-transition validation.
+- Append-only audit trails.
+- Real-time event delivery using WebSockets.
+- WebSocket authentication and connection recovery.
+- Separation of authorization rules from dashboard presentation.
 
 ## 👨‍💻 Author
 
 **Francis Githua**
 
-Computer Science student | Networking | Cybersecurity | Security Operations
+Computer Science | Networking | Cybersecurity | Security Operations
 
 - GitHub: [@frenkiegithua](https://github.com/frenkiegithua)
 - Portfolio: [francisgithua.netlify.app](https://francisgithua.netlify.app)
 
 ---
 
-*Built as a hands-on project to develop practical skills in cybersecurity, SOC operations, and secure application development.*
+*Developed as a practical cybersecurity engineering project focused on SOC workflows, incident management, and secure backend development.*
