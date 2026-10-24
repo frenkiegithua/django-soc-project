@@ -1,74 +1,98 @@
-# SOC Platform: Progress Tracker
+# Django SOC Platform 🛡️
 
-Project: Django + DRF + Channels SOC alert platform
-Repo: https://github.com/frenkiegithua/django-soc-project
-Scope rule: every day is SOC or security work. No unrelated domains.
+A Django-based Security Operations Center (SOC) platform for managing security alerts, coordinating incident response, enforcing role-based access control, and monitoring incident activity in real time.
 
-## Plan (7 phases, 100 days)
+## ✨ Features
 
-| Phase | Days | Focus | Status |
-|---|---|---|---|
-| 1: Foundations | 1-15 | Python refresh, Django basics, request/response, templates, forms | Complete |
-| 2: Databases & Auth | 16-30 | Models, relationships, users, permissions, security events DB | In progress |
-| 3: REST APIs & Networking | 31-45 | HTTP deeply, REST, DRF, network-aware APIs | Not started |
-| 4: SOC Dashboard | 46-65 | Real SOC alert dashboard with analyst features | Not started |
-| 5: Security & Hardening | 66-80 | CSRF, XSS, SQL injection, authentication, secure design | Not started |
-| 6: Logs & Detection | 81-90 | Event pipelines, log processing, detection rules, alerts | Not started |
-| 7: Capstone | 91-100 | Mini SOC platform combining everything | Not started |
+- **Security Alert Management** — Track security alerts and their statuses throughout the investigation lifecycle.
+- **Incident Management** — Create, assign, manage, and resolve security incidents.
+- **Role-Based Access Control** — Separate permissions for SOC Analysts and SOC Leads.
+- **Incident Ownership** — Allow analysts to claim unassigned incidents, unassign themselves, and resolve incidents they own.
+- **Incident Reassignment** — Enable SOC Leads to reassign and resolve incidents across the team.
+- **Resolution Safeguards** — Prevent incident resolution while linked alerts remain `OPEN` or `IN_PROGRESS`.
+- **Append-Only Audit Logging** — Maintain a traceable record of incident changes and protect existing audit records against modification and deletion.
+- **Real-Time Dashboard** — Deliver live incident-count updates through WebSockets.
+- **WebSocket Authentication** — Authenticate WebSocket connections.
+- **Secure API Authorization** — Enforce permissions on sensitive incident operations and restrict generic incident updates and deletions to authorized SOC Leads.
 
-## Day Log
+## 🛠️ Tech Stack
 
-| Day | Topic | Commit | Status |
-|---|---|---|---|
-| 1-5 | Setup, views, templates, forms | early commits | Done |
-| 6-7 | Alert model, admin, ModelForm, filtering | early commits | Done |
-| 8 | Search, pagination, sorting | early commits | Done |
-| 9 | REST API (CRUD, webhook, CSV export) | early commits | Done |
-| 10 | Token auth, rate limiting, audit fields | early commits | Done |
-| 11 | Incident model, analytics, stats endpoint | early commits | Done |
-| 12 | Notifications (email, Slack, webhook) | fd47063 | Done |
-| 13 | Authenticated WebSocket dashboard, reconnect with backoff | 005e8d3 | Done |
-| 14 | Live Open Incidents counter over WebSocket | 27b87b1 | Done |
-| 15 | Incident assignment and "my queue" (?assigned=me) | no dedicated commit | Done (shipped in Day 16 history) |
-| 16 | Append-only AuditLog for incident changes | 030230c | Done |
-| 17 | Permissions and roles: analyst vs. lead groups | | Next |
+- Python
+- Django
+- Django REST Framework
+- Django Channels
+- WebSockets
+- Git and GitHub
 
-## Phase 2 Day Plan (proposed, confirm before use)
+## 🔐 Role-Based Access Control
 
-- 17: Permissions and roles (analyst vs. lead groups)
-- 18: Object-level permissions (only the assignee can resolve an incident)
-- 19: Security events schema (normalize alerts into one event model)
-- 20: Relationships review and query optimization
-- 21: Database integrity (unique and check constraints)
-- 22: Audit log hardening and retention
-- 23-29: To confirm together when reached
-- 30: Phase 2 checkpoint
+| Capability | SOC Analyst | SOC Lead |
+|---|---|---|
+| Claim unassigned incidents | ✅ | Subject to configured permissions |
+| Unassign own incidents | ✅ | Subject to configured permissions |
+| Resolve own incidents | ✅ | ✅ |
+| Reassign any incident | ❌ | ✅ |
+| Resolve any incident | ❌ | ✅ |
+| Generic incident updates and deletion | ❌ | ✅ |
 
-## Known Gaps
+All protected operations are authorized on the backend. Incident resolution is blocked while any linked alert remains `OPEN` or `IN_PROGRESS`.
 
-- [ ] API token was pasted into chat several times. Rotate again before any new test. Never paste it into chat or project files.
-- [ ] Store the token in an environment variable (`export SOC_TOKEN=...`), not in files.
-- [ ] Day 15 has no dedicated commit.
-- [ ] Commit author in older commits shows the hostname identity (francis200). Future commits use frenkiegithua.
-- [ ] Duplicate Day 14 commit message (fd47063 and 27b87b1).
-- [ ] Audit log guard covers model save and delete only. Queryset deletes and raw SQL bypass it. Enforce at the database level in Phase 5.
-- [ ] Django login: dashboard uses `LOGIN_URL = '/admin/login/'`. Keep this in settings.
+## 🚀 Getting Started
 
-## Working Rules
+### Prerequisites
 
-1. Goal: one sentence, inside the current phase.
-2. Design: list models, endpoints, and files. Wait for approval before code.
-3. Build: replace whole files. No partial edits.
-4. Verify: test with expected output.
-5. Record: update this file, commit, push. Run `git grep -n "$SOC_TOKEN" || echo clean` before committing.
-6. Check: two knowledge-check questions before the next day.
+- Python 3
+- Git
+- pip
 
-## Session Handoff Prompt
+### Installation
 
-Paste this file and say:
+```bash
+git clone https://github.com/frenkiegithua/django-soc-project.git
+cd django-soc-project
 
-> Follow this plan. Restate today's day and wait for my go-ahead before writing code. Stay within SOC/security scope.
+python3 -m venv venv
+source venv/bin/activate
 
-## Update Log
+pip install -r requirements.txt
+```
 
-- 2026-10-19: Day 16 complete. Day 17 is next.
+Configure the required environment variables, then initialize the database and SOC roles:
+
+```bash
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py setup_soc_roles
+python manage.py runserver
+```
+
+Open `http://127.0.0.1:8000/` in your browser.
+
+### Run Tests
+
+```bash
+python manage.py test
+```
+
+## 🧠 Key Engineering Concepts
+
+- Role-based and ownership-based authorization.
+- Secure REST API design.
+- Incident lifecycle and state-transition validation.
+- Append-only audit trails.
+- Real-time event delivery using WebSockets.
+- WebSocket authentication and connection recovery.
+- Separation of authorization rules from dashboard presentation.
+
+## 👨‍💻 Author
+
+**Francis Githua**
+
+Computer Science | Networking | Cybersecurity | Security Operations
+
+- GitHub: [@frenkiegithua](https://github.com/frenkiegithua)
+- Portfolio: [francisgithua.netlify.app](https://francisgithua.netlify.app)
+
+---
+
+*Developed as a practical cybersecurity engineering project focused on SOC workflows, incident management, and secure backend development.*
